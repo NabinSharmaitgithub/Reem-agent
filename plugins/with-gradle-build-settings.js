@@ -13,7 +13,6 @@ const GRADLE_PROPERTIES = [
   { key: 'org.gradle.workers.max', value: '2' },
   { key: 'kotlin.compiler.execution.strategy', value: 'out-of-process' },
   { key: 'kotlin.daemon.jvmargs', value: '-Xmx3g -XX:MaxMetaspaceSize=1g' },
-  { key: 'android.packagingOptions.excludes', value: 'com/google/firebase/Timestamp.class,com/google/firebase/Timestamp$*.class' },
 ]
 
 module.exports = function withGradleBuildSettings(config) {

@@ -259,7 +259,7 @@ Config plugins under `plugins/` are wired into `app.json` and run during `expo p
 
 | Plugin | Purpose |
 |---|---|
-| `with-firebase-resolution.js` | `packagingOptions` excludes to fix duplicate `com.google.firebase.Timestamp` class |
+| `with-firebase-resolution.js` | Aligns Firebase Firestore with the Firebase version used by Expo Notifications (no duplicate `Timestamp` classes) and adds Guava for React Native Firebase 18.9.0 firestore sources |
 | `with-litert-lm.js` | LiteRT LM (on-device model) native config |
 | `with-background-agent.js` | Background agent service + `FOREGROUND_SERVICE_DATA_SYNC` |
 | `with-android-system-bars.js` | System bars / edge-to-edge handling |
@@ -324,7 +324,7 @@ Firebase project `reem-8fd60` rules/indexes are deployed separately. `.env` is g
 | Issue | Likely cause / fix |
 |---|---|
 | `:default-assistant:compileReleaseKotlin` fails | `reactContext` must be a getter throwing `ReactContextLost()`; use `sendEvent(...)` not `emit(...)`; no `init {}` / default lambda values in `ModuleDefinition` |
-| Duplicate `com.google.firebase.Timestamp` class | `with-firebase-resolution.js` packaging excludes (verify generated `android/app/build.gradle`) |
+| Duplicate `com.google.firebase.Timestamp` class | `with-firebase-resolution.js` pins Firestore to the Firebase 26 line used with Expo Notifications' Firebase 25 messaging dependency |
 | Accessibility service not binding | Manifest must declare `exported="true"` + `BIND_ACCESSIBILITY_SERVICE`; user must toggle it on in Settings |
 | Floating button not appearing | Grant "Display over other apps"; service runs as `specialUse` FGS |
 | Widget not updating | Receiver must be `exported="true"`; widget resources must exist in merged `res/` |

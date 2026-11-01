@@ -1313,27 +1313,54 @@ export async function migrateAppDatabase(db: SQLiteDatabase) {
     const skillsBase = new Directory(Paths.document, "mobile-agent/skills");
     const agentsBase = new Directory(Paths.document, "mobile-agent/agents");
 
-    await db.execAsync(`
-      ALTER TABLE skills ADD COLUMN file_path TEXT;
-      ALTER TABLE agents ADD COLUMN file_path TEXT;
-    `);
+    const getTableColumns = async (table: string) =>
+      new Set(
+        (
+          await db.getAllAsync<{ name: string }>(
+            `PRAGMA table_info(${table})`,
+          )
+        ).map((column) => column.name),
+      );
 
-    const skillRows = await db.getAllAsync<{
-      auto_match: number;
-      description: string | null;
-      id: string;
-      instructions: string;
-      match_keywords_json: string;
-      recommended_built_in_tool_keys_json: string;
-      recommended_mcp_server_ids_json: string;
-      source_markdown: string | null;
-      title: string;
-    }>(
-      `SELECT id, title, description, instructions, auto_match,
-              match_keywords_json, recommended_built_in_tool_keys_json,
-              recommended_mcp_server_ids_json, source_markdown
-       FROM skills`,
-    );
+    const skillColumns = await getTableColumns("skills");
+    const agentColumns = await getTableColumns("agents");
+
+    if (!skillColumns.has("file_path")) {
+      await db.execAsync("ALTER TABLE skills ADD COLUMN file_path TEXT;");
+    }
+    if (!agentColumns.has("file_path")) {
+      await db.execAsync("ALTER TABLE agents ADD COLUMN file_path TEXT;");
+    }
+
+    const hasLegacySkillColumns = [
+      "title",
+      "description",
+      "instructions",
+      "auto_match",
+      "match_keywords_json",
+      "recommended_built_in_tool_keys_json",
+      "recommended_mcp_server_ids_json",
+      "source_markdown",
+    ].every((column) => skillColumns.has(column));
+
+    const skillRows = hasLegacySkillColumns
+      ? await db.getAllAsync<{
+          auto_match: number;
+          description: string | null;
+          id: string;
+          instructions: string;
+          match_keywords_json: string;
+          recommended_built_in_tool_keys_json: string;
+          recommended_mcp_server_ids_json: string;
+          source_markdown: string | null;
+          title: string;
+        }>(
+          `SELECT id, title, description, instructions, auto_match,
+                  match_keywords_json, recommended_built_in_tool_keys_json,
+                  recommended_mcp_server_ids_json, source_markdown
+           FROM skills`,
+        )
+      : [];
 
     for (const skill of skillRows) {
       let markdown: string | null = null;
@@ -1414,22 +1441,36 @@ export async function migrateAppDatabase(db: SQLiteDatabase) {
       );
     }
 
-    const agentRows = await db.getAllAsync<{
-      description: string | null;
-      id: string;
-      mode: string;
-      model_model_id: string | null;
-      model_provider_id: string | null;
-      name: string;
-      prompt: string | null;
-      source_markdown: string | null;
-      temperature: number | null;
-      tool_permissions_json: string;
-    }>(
-      `SELECT id, name, description, prompt, mode, model_provider_id,
-              model_model_id, temperature, tool_permissions_json, source_markdown
-       FROM agents`,
-    );
+    const hasLegacyAgentColumns = [
+      "name",
+      "description",
+      "prompt",
+      "mode",
+      "model_provider_id",
+      "model_model_id",
+      "temperature",
+      "source_markdown",
+      "tool_permissions_json",
+    ].every((column) => agentColumns.has(column));
+
+    const agentRows = hasLegacyAgentColumns
+      ? await db.getAllAsync<{
+          description: string | null;
+          id: string;
+          mode: string;
+          model_model_id: string | null;
+          model_provider_id: string | null;
+          name: string;
+          prompt: string | null;
+          source_markdown: string | null;
+          temperature: number | null;
+          tool_permissions_json: string;
+        }>(
+          `SELECT id, name, description, prompt, mode, model_provider_id,
+                  model_model_id, temperature, tool_permissions_json, source_markdown
+           FROM agents`,
+        )
+      : [];
 
     for (const agent of agentRows) {
       let markdown: string | null = null;
@@ -1528,28 +1569,35 @@ export async function migrateAppDatabase(db: SQLiteDatabase) {
     await db.execAsync(`
       DROP TABLE IF EXISTS skill_files;
       DROP TABLE IF EXISTS agent_docs;
-
       DROP INDEX IF EXISTS agents_name_unique;
-
-      ALTER TABLE agents DROP COLUMN name;
-      ALTER TABLE agents DROP COLUMN description;
-      ALTER TABLE agents DROP COLUMN prompt;
-      ALTER TABLE agents DROP COLUMN mode;
-      ALTER TABLE agents DROP COLUMN model_provider_id;
-      ALTER TABLE agents DROP COLUMN model_model_id;
-      ALTER TABLE agents DROP COLUMN temperature;
-      ALTER TABLE agents DROP COLUMN source_markdown;
-      ALTER TABLE agents DROP COLUMN tool_permissions_json;
-
-      ALTER TABLE skills DROP COLUMN title;
-      ALTER TABLE skills DROP COLUMN description;
-      ALTER TABLE skills DROP COLUMN instructions;
-      ALTER TABLE skills DROP COLUMN source_markdown;
-      ALTER TABLE skills DROP COLUMN auto_match;
-      ALTER TABLE skills DROP COLUMN match_keywords_json;
-      ALTER TABLE skills DROP COLUMN recommended_mcp_server_ids_json;
-      ALTER TABLE skills DROP COLUMN recommended_built_in_tool_keys_json;
     `);
+
+    const columnsToDrop = [
+      ["agents", "name"],
+      ["agents", "description"],
+      ["agents", "prompt"],
+      ["agents", "mode"],
+      ["agents", "model_provider_id"],
+      ["agents", "model_model_id"],
+      ["agents", "temperature"],
+      ["agents", "source_markdown"],
+      ["agents", "tool_permissions_json"],
+      ["skills", "title"],
+      ["skills", "description"],
+      ["skills", "instructions"],
+      ["skills", "source_markdown"],
+      ["skills", "auto_match"],
+      ["skills", "match_keywords_json"],
+      ["skills", "recommended_mcp_server_ids_json"],
+      ["skills", "recommended_built_in_tool_keys_json"],
+    ] as const;
+
+    for (const [table, column] of columnsToDrop) {
+      const columns = await getTableColumns(table);
+      if (columns.has(column)) {
+        await db.execAsync(`ALTER TABLE ${table} DROP COLUMN ${column};`);
+      }
+    }
 
     currentVersion = 29;
   }

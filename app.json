@@ -1,0 +1,157 @@
+{
+  "expo": {
+    "name": "Reem",
+    "slug": "reem",
+    "version": "2.1.7",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "reem",
+    "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ba8b3df6-5da2-452d-9199-91a618cb21f2"
+    },
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.reem.ai",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "Connect to servers on your local network.",
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
+    },
+    "android": {
+      "versionCode": 2,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECOGNIZE_SPEECH",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WRITE_SETTINGS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundImage": "./assets/images/icon.png",
+        "monochromeImage": "./assets/images/icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.reem.ai"
+    },
+    "web": {
+      "output": "server",
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to scan OpenCode pairing QR codes.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "./plugins/with-firebase-resolution",
+      "./plugins/with-litert-lm",
+      "./plugins/with-background-agent",
+      "./plugins/with-android-system-bars",
+      "./plugins/with-gradle-build-settings",
+      "./plugins/with-scheduler-alarm",
+      "./plugins/with-whisper",
+      "./plugins/with-share-target",
+      "./plugins/with-device-automation",
+      "./plugins/with-floating-button",
+      "./plugins/with-default-assistant",
+      "./plugins/with-notification-trigger",
+      "./plugins/with-wake-word",
+      "./plugins/with-home-screen-widget",
+      "./plugins/with-trigger-dispatch",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#5996FF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "agent-runs",
+          "color": "#023c69",
+          "icon": "./assets/images/notification-icon.png"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone for voice input.",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to use speech recognition to turn your voice into text."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone for voice input.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to attach selected photos to your chats.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to scan OpenCode pairing QR codes.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone for voice input."
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ba8b3df6-5da2-452d-9199-91a618cb21f2"
+      }
+    },
+    "owner": "nabin329s-team"
+  }
+}

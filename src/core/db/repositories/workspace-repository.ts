@@ -1,0 +1,147 @@
+import * as Crypto from "expo-crypto";
+import { and, asc, desc, eq, ne, notLike } from "drizzle-orm";
+
+import { documentSections, workspaceFiles } from "@/core/db/schema";
+import { nowIso } from "@/core/db/repositories/shared";
+import type { AppDatabase, WorkspaceRepository } from "@/core/db/repositories/types";
+
+export function createWorkspaceRepository(db: AppDatabase): WorkspaceRepository {
+  return {
+    async create(input) {
+      const id = input.id ?? Crypto.randomUUID();
+      const timestamp = nowIso();
+
+      await db.insert(workspaceFiles).values({
+        id,
+        displayName: input.displayName,
+        mimeType: input.mimeType ?? null,
+        originalName: input.originalName ?? null,
+        relativePath: input.relativePath,
+        size: input.size ?? null,
+        sourceKind: input.sourceKind,
+        sourceMarkdown: input.sourceMarkdown ?? null,
+        sourceSpec: input.sourceSpec ?? null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      const row = (
+        await db.select().from(workspaceFiles).where(eq(workspaceFiles.id, id)).limit(1)
+      )[0];
+
+      if (!row) {
+        throw new Error("Failed to create workspace file");
+      }
+
+      return row;
+    },
+    async getById(id) {
+      return (
+        (
+          await db.select().from(workspaceFiles).where(eq(workspaceFiles.id, id)).limit(1)
+        )[0] ?? null
+      );
+    },
+    async getByIds(ids) {
+      if (ids.length === 0) {
+        return [];
+      }
+
+      const rows = await db.select().from(workspaceFiles);
+      const idSet = new Set(ids);
+
+      return rows
+        .filter((row) => idSet.has(row.id))
+        .sort((left, right) => ids.indexOf(left.id) - ids.indexOf(right.id));
+    },
+    async list() {
+      return db
+        .select()
+        .from(workspaceFiles)
+        .where(
+          and(
+            ne(workspaceFiles.sourceKind, "artifact"),
+            notLike(workspaceFiles.relativePath, "prompts/%"),
+            notLike(workspaceFiles.relativePath, "tools/%"),
+          ),
+        )
+        .orderBy(desc(workspaceFiles.updatedAt));
+    },
+    async deleteAll() {
+      await db.delete(documentSections);
+      await db.delete(workspaceFiles);
+    },
+    async delete(id) {
+      await db.delete(documentSections).where(eq(documentSections.fileId, id));
+      await db.delete(workspaceFiles).where(eq(workspaceFiles.id, id));
+    },
+    async updateMetadata(id, input) {
+      const current = (
+        await db
+          .select()
+          .from(workspaceFiles)
+          .where(eq(workspaceFiles.id, id))
+          .limit(1)
+      )[0];
+
+      if (!current) {
+        return;
+      }
+
+      await db
+        .update(workspaceFiles)
+        .set({
+          displayName: input.displayName ?? current.displayName,
+          mimeType: input.mimeType !== undefined ? input.mimeType : current.mimeType,
+          originalName:
+            input.originalName !== undefined
+              ? input.originalName
+              : current.originalName,
+          relativePath: input.relativePath ?? current.relativePath,
+          size: input.size !== undefined ? input.size : current.size,
+          sourceMarkdown:
+            input.sourceMarkdown !== undefined
+              ? input.sourceMarkdown
+              : current.sourceMarkdown,
+          sourceSpec:
+            input.sourceSpec !== undefined
+              ? input.sourceSpec
+              : current.sourceSpec,
+          updatedAt: input.updatedAt ?? nowIso(),
+        })
+        .where(eq(workspaceFiles.id, id));
+    },
+    async replaceDocumentSections(fileId, sections) {
+      const timestamp = nowIso();
+
+      await db
+        .delete(documentSections)
+        .where(eq(documentSections.fileId, fileId));
+
+      if (sections.length === 0) {
+        return;
+      }
+
+      await db.insert(documentSections).values(
+        sections.map((section, position) => ({
+          id: Crypto.randomUUID(),
+          fileId,
+          position,
+          title: section.title,
+          level: section.level,
+          body: section.body,
+          charCount: section.body.length,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })),
+      );
+    },
+    async listDocumentSections(fileId) {
+      return db
+        .select()
+        .from(documentSections)
+        .where(eq(documentSections.fileId, fileId))
+        .orderBy(asc(documentSections.position));
+    },
+  };
+}

@@ -1,0 +1,41 @@
+{
+    "cli": {
+        "appVersionSource": "remote"
+    },
+    "build": {
+        "production": {
+            "autoIncrement": true,
+            "channel": "production",
+            "android": {
+                "buildType": "apk"
+            }
+        },
+        "development": {
+            "developmentClient": false,
+            "distribution": "internal",
+            "channel": "development",
+            "android": {
+                "buildType": "apk",
+                "gradleCommand": ":app:assembleDebug"
+            }
+        },
+        "development-local": {
+            "extends": "development",
+            "distribution": "internal",
+            "channel": "development",
+            "android": {
+                "buildType": "apk",
+                "gradleCommand": ":app:assembleDebug --max-workers=4 -PreactNativeArchitectures=arm64-v8a -Dorg.gradle.jvmargs=-Xmx8g -x lint --console=plain"
+            }
+        },
+        "production-local": {
+            "extends": "production",
+            "distribution": "internal",
+            "channel": "production",
+            "android": {
+                "buildType": "apk",
+                "gradleCommand": ":app:assembleRelease --max-workers=4 -PreactNativeArchitectures=arm64-v8a -Dorg.gradle.jvmargs=-Xmx8g -x lint --console=plain"
+            }
+        }
+    }
+}

@@ -1,0 +1,545 @@
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
+
+import type {
+  AgentMode,
+  AgentRunStatus,
+  ExternalFolderSession,
+  FileContextSource,
+  MessageMetadata,
+  MessageRole,
+  MessageStatus,
+  McpServerAuthMode,
+  McpServerOAuthMode,
+  McpServerStatus,
+  McpServerTransport,
+  PendingInputDelivery,
+  ProviderAuthType,
+  ProviderFamily,
+  ReasoningEffort,
+  ScheduleRunStatus,
+  WorkspaceFileSourceKind,
+} from "@/core/types/app-state";
+
+export const conversations = sqliteTable(
+  "conversations",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull(),
+    providerId: text("provider_id"),
+    modelId: text("model_id"),
+    reasoningEffort: text("reasoning_effort")
+      .$type<ReasoningEffort>()
+      .notNull()
+      .default("medium"),
+    agentId: text("agent_id"),
+    agentMode: text("agent_mode").$type<AgentMode>().notNull().default("build"),
+    selectedFileIds: text("selected_file_ids_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    selectedMcpServerIds: text("selected_mcp_server_ids_json", {
+      mode: "json",
+    }).$type<string[] | null>(),
+    selectedSkillIds: text("selected_skill_ids_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    externalFolderSession: text("external_folder_session_json", { mode: "json" })
+      .$type<ExternalFolderSession | null>(),
+    pinnedAt: text("pinned_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    archivedAt: text("archived_at"),
+  },
+  (table) => [index("idx_conversations_updated_at").on(table.updatedAt)],
+);
+
+export const messages = sqliteTable(
+  "messages",
+  {
+    id: text("id").primaryKey().notNull(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    role: text("role").$type<MessageRole>().notNull(),
+    content: text("content").notNull(),
+    metadata: text("metadata_json", { mode: "json" }).$type<MessageMetadata | null>(),
+    status: text("status").$type<MessageStatus>().notNull(),
+    error: text("error"),
+    sequence: integer("sequence").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_messages_conversation_sequence").on(
+      table.conversationId,
+      table.sequence,
+    ),
+  ],
+);
+
+export const agentRuns = sqliteTable(
+  "agent_runs",
+  {
+    id: text("id").primaryKey().notNull(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    status: text("status").$type<AgentRunStatus>().notNull(),
+    userMessageId: text("user_message_id").notNull(),
+    assistantMessageId: text("assistant_message_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    input: text("input").notNull(),
+    fileContextSource: text("file_context_source").$type<FileContextSource | null>(),
+    selectedFileIds: text("selected_file_ids_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    externalFolderSession: text("external_folder_session_json", {
+      mode: "json",
+    }).$type<ExternalFolderSession | null>(),
+    startedAt: text("started_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    completedAt: text("completed_at"),
+    lastError: text("last_error"),
+    resumeCount: integer("resume_count").notNull().default(0),
+    retryCount: integer("retry_count").notNull().default(0),
+    maxRetries: integer("max_retries").notNull().default(3),
+    lastRetryAt: text("last_retry_at"),
+    agentId: text("agent_id"),
+    agentMode: text("agent_mode").$type<AgentMode>().notNull().default("build"),
+    autoApprove: integer("auto_approve", { mode: "boolean" })
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    index("idx_agent_runs_conversation_updated_at").on(
+      table.conversationId,
+      table.updatedAt,
+    ),
+    index("idx_agent_runs_status_updated_at").on(table.status, table.updatedAt),
+  ],
+);
+
+export const workspaceFiles = sqliteTable(
+  "workspace_files",
+  {
+    id: text("id").primaryKey().notNull(),
+    displayName: text("display_name").notNull(),
+    originalName: text("original_name"),
+    mimeType: text("mime_type"),
+    size: integer("size"),
+    relativePath: text("relative_path").notNull(),
+    sourceKind: text("source_kind").$type<WorkspaceFileSourceKind>().notNull(),
+    sourceMarkdown: text("source_markdown"),
+    /** JSON snapshot of the original document styling (docx), stored on import. */
+    sourceSpec: text("source_spec"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("workspace_files_relative_path_unique").on(table.relativePath)],
+);
+
+export const documentSections = sqliteTable(
+  "document_sections",
+  {
+    id: text("id").primaryKey().notNull(),
+    fileId: text("file_id")
+      .notNull()
+      .references(() => workspaceFiles.id, { onDelete: "cascade" }),
+    /** 0-based order of the section within the document. */
+    position: integer("position").notNull(),
+    /** Heading text without the leading `#` markers. */
+    title: text("title").notNull(),
+    /** Heading level 1-6. */
+    level: integer("level").notNull(),
+    /** Exact Markdown slice for the section, including its heading line. */
+    body: text("body").notNull(),
+    charCount: integer("char_count").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_document_sections_file_position").on(
+      table.fileId,
+      table.position,
+    ),
+  ],
+);
+
+export const pendingInputs = sqliteTable(
+  "pending_inputs",
+  {
+    id: text("id").primaryKey().notNull(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    metadata: text("metadata_json", { mode: "json" }).$type<MessageMetadata | null>(),
+    delivery: text("delivery").$type<PendingInputDelivery>().notNull(),
+    seq: integer("seq").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_pending_inputs_conversation_seq").on(
+      table.conversationId,
+      table.seq,
+    ),
+  ],
+);
+
+export const providerConfigs = sqliteTable("provider_configs", {
+  id: text("id").primaryKey().notNull(),
+  family: text("family").$type<ProviderFamily>().notNull(),
+  label: text("label").notNull(),
+  authType: text("auth_type").$type<ProviderAuthType>().notNull(),
+  baseUrl: text("base_url"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  oauthAccountEmail: text("oauth_account_email"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const modelPresets = sqliteTable(
+  "model_presets",
+  {
+    id: text("id").primaryKey().notNull(),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    label: text("label"),
+    isDefault: integer("is_default", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    options: text("options_json", { mode: "json" }).$type<
+      Record<string, unknown> | null
+    >(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("model_presets_provider_id_model_id_unique").on(
+      table.providerId,
+      table.modelId,
+    ),
+  ],
+);
+
+export const mcpServers = sqliteTable(
+  "mcp_servers",
+  {
+    id: text("id").primaryKey().notNull(),
+    label: text("label").notNull(),
+    url: text("url").notNull(),
+    transport: text("transport").$type<McpServerTransport>().notNull(),
+    authMode: text("auth_mode").$type<McpServerAuthMode>().notNull(),
+    oauthMode: text("oauth_mode").$type<McpServerOAuthMode>(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    headerNames: text("header_names_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    oauthClientId: text("oauth_client_id"),
+    oauthAuthorizationUrl: text("oauth_authorization_url"),
+    oauthTokenUrl: text("oauth_token_url"),
+    oauthScopes: text("oauth_scopes"),
+    oauthAllowedAuthOrigin: text("oauth_allowed_auth_origin"),
+    lastStatus: text("last_status").$type<McpServerStatus>().notNull().default("untested"),
+    lastError: text("last_error"),
+    toolCount: integer("tool_count"),
+    serverInfo: text("server_info_json", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    serverInstructions: text("server_instructions"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_mcp_servers_updated_at").on(table.updatedAt)],
+);
+
+export const skills = sqliteTable(
+  "skills",
+  {
+    id: text("id").primaryKey().notNull(),
+    filePath: text("file_path").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_skills_updated_at").on(table.updatedAt)],
+);
+
+export const agents = sqliteTable(
+  "agents",
+  {
+    id: text("id").primaryKey().notNull(),
+    filePath: text("file_path").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    hidden: integer("hidden", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_agents_updated_at").on(table.updatedAt)],
+);
+
+export const savedPrompts = sqliteTable(
+  "saved_prompts",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_saved_prompts_updated_at").on(table.updatedAt)],
+);
+
+export const schedules = sqliteTable(
+  "schedules",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull(),
+    prompt: text("prompt").notNull(),
+    expression: text("expression").notNull(),
+    timezone: text("timezone").notNull(),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    agentId: text("agent_id"),
+    autoApprove: integer("auto_approve", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    conversationId: text("conversation_id"),
+    externalFolderSession: text("external_folder_session_json", {
+      mode: "json",
+    }).$type<ExternalFolderSession | null>(),
+    lastRunAt: text("last_run_at"),
+    nextRunAt: text("next_run_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_schedules_enabled_next_run_at").on(
+      table.enabled,
+      table.nextRunAt,
+    ),
+    index("idx_schedules_updated_at").on(table.updatedAt),
+  ],
+);
+
+export const scheduleRuns = sqliteTable(
+  "schedule_runs",
+  {
+    id: text("id").primaryKey().notNull(),
+    scheduleId: text("schedule_id")
+      .notNull()
+      .references(() => schedules.id, { onDelete: "cascade" }),
+    runId: text("run_id"),
+    status: text("status").$type<ScheduleRunStatus>().notNull(),
+    error: text("error"),
+    startedAt: text("started_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("idx_schedule_runs_schedule_started_at").on(
+      table.scheduleId,
+      table.startedAt,
+    ),
+  ],
+);
+
+export const triggers = sqliteTable(
+  "triggers",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    type: text("type").notNull(), // "scheduled" | "notification"
+    prompt: text("prompt").notNull(),
+    providerId: text("provider_id").notNull(),
+    modelId: text("model_id").notNull(),
+    agentId: text("agent_id"),
+    autoApprove: integer("auto_approve", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    // Scheduled trigger fields
+    cronExpression: text("cron_expression"),
+    timezone: text("timezone"),
+    weekdays: text("weekdays_json", { mode: "json" }).$type<string[] | null>(),
+    time: text("time"), // HH:MM
+    // Notification trigger fields
+    notificationAppPackage: text("notification_app_package"),
+    notificationAppName: text("notification_app_name"),
+    // Runtime fields
+    lastTriggeredAt: text("last_triggered_at"),
+    triggerCount: integer("trigger_count").notNull().default(0),
+    conversationId: text("conversation_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_triggers_enabled_type").on(table.enabled, table.type),
+    index("idx_triggers_updated_at").on(table.updatedAt),
+  ],
+);
+
+export const moments = sqliteTable(
+  "moments",
+  {
+    id: text("id").primaryKey().notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    type: text("type").notNull(), // "success" | "milestone" | "interaction"
+    sourceRunId: text("source_run_id"),
+    sourceConversationId: text("source_conversation_id"),
+    tagsJson: text("tags_json").notNull().default("[]"),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_moments_created_at").on(table.createdAt),
+    index("idx_moments_type").on(table.type),
+    index("idx_moments_pinned").on(table.pinned),
+  ],
+);
+
+export const triggerRuns = sqliteTable(
+  "trigger_runs",
+  {
+    id: text("id").primaryKey().notNull(),
+    triggerId: text("trigger_id")
+      .notNull()
+      .references(() => triggers.id, { onDelete: "cascade" }),
+    runId: text("run_id"),
+    status: text("status").notNull(), // "pending" | "completed" | "failed"
+    error: text("error"),
+    triggeredAt: text("triggered_at").notNull(),
+    completedAt: text("completed_at"),
+  },
+  (table) => [
+    index("idx_trigger_runs_trigger_triggered_at").on(
+      table.triggerId,
+      table.triggeredAt,
+    ),
+  ],
+);
+
+export const plugins = sqliteTable(
+  "plugins",
+  {
+    id: text("id").primaryKey().notNull(),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+    description: text("description"),
+    author: text("author"),
+    filePath: text("file_path").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    options: text("options_json", { mode: "json" })
+      .$type<Record<string, unknown> | null>()
+      .default(null),
+    sourceUrl: text("source_url"),
+    lastUpdateCheck: text("last_update_check"),
+    lastError: text("last_error"),
+    requiredSecrets: text("required_secrets_json", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("idx_plugins_updated_at").on(table.updatedAt)],
+);
+
+export const pluginStorage = sqliteTable(
+  "plugin_storage",
+  {
+    pluginId: text("plugin_id").notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pluginId, table.key] }),
+    index("idx_plugin_storage_plugin_id").on(table.pluginId),
+  ],
+);
+
+export const memories = sqliteTable(
+  "memories",
+  {
+    id: text("id").primaryKey().notNull(),
+    content: text("content").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    sourceConversationId: text("source_conversation_id"),
+    sourceMessageId: text("source_message_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    archivedAt: text("archived_at"),
+    category: text("category").notNull().default("fact"),
+    importance: text("importance").notNull().default("medium"),
+    tagsJson: text("tags_json").notNull().default("[]"),
+    accessCount: integer("access_count").notNull().default(0),
+    lastAccessedAt: text("last_accessed_at"),
+  },
+  (table) => [index("idx_memories_updated_at").on(table.updatedAt)],
+);
+
+export const providerAccounts = sqliteTable(
+  "provider_accounts",
+  {
+    id: text("id").primaryKey().notNull(),
+    providerId: text("provider_id").notNull(),
+    label: text("label").notNull(),
+    credentialKind: text("credential_kind")
+      .$type<"apiKey" | "oauth">()
+      .notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_provider_accounts_provider_id").on(table.providerId),
+  ],
+);
+
+export const providerAccountState = sqliteTable("provider_account_state", {
+  providerId: text("provider_id").primaryKey().notNull(),
+  activeAccountId: text("active_account_id"),
+});
+
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey().notNull(),
+  value: text("value"),
+});
+
+export const schema = {
+  agentRuns,
+  agents,
+  appSettings,
+  conversations,
+  documentSections,
+  memories,
+  messages,
+  mcpServers,
+  modelPresets,
+  pendingInputs,
+  pluginStorage,
+  plugins,
+  providerAccounts,
+  providerAccountState,
+  providerConfigs,
+  savedPrompts,
+  scheduleRuns,
+  schedules,
+  skills,
+  triggers,
+  triggerRuns,
+  workspaceFiles,
+  moments,
+};

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="device_automation_accessibility_service_description">Reem Accessibility Service — reads the screen and performs taps, swipes, and text entry so the AI agent can help you across apps.</string>
+</resources>

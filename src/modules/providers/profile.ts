@@ -1,0 +1,175 @@
+import type {
+  ModelCapabilities,
+  ModelTransport,
+  ProviderAuthType,
+  ProviderFamily,
+} from "@/core/types/app-state";
+import { getOpenAiOAuthFlavor } from "@/modules/providers/openai";
+
+export type ModelProfile = {
+  capabilities: ModelCapabilities;
+  transport: ModelTransport;
+};
+
+const OPENAI_CHAT_ONLY_MODELS = new Set(["gpt-5-chat-latest"]);
+
+const FAMILY_DEFAULT_CAPABILITIES: Record<ProviderFamily, ModelCapabilities> = {
+  openai: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: true,
+    imageGeneration: true,
+    reasoning: false,
+  },
+  anthropic: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: true,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  google: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: true,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  "on-device": {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: false,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  openrouter: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: false,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  ollama: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: false,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  xai: {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: true,
+    imageGeneration: false,
+    reasoning: false,
+  },
+  "openai-compatible": {
+    tools: true,
+    audioInput: false,
+    videoInput: false,
+    imageInput: false,
+    imageGeneration: false,
+    reasoning: false,
+  },
+};
+
+function modelIdLikelySupportsReasoning(modelId: string) {
+  return /(?:^|[\/.:-])(?:gpt-5|o[134](?:-|$)|claude-(?:3-7|4)|gemini-(?:2\.5|3)|deepseek-r1|qwq|reasoning|thinking)/i.test(
+    modelId,
+  );
+}
+
+const FAMILY_DEFAULT_TRANSPORT: Record<ProviderFamily, ModelTransport> = {
+  openai: "openaiResponses",
+  anthropic: "anthropic",
+  google: "google",
+  "on-device": "onDevice",
+  openrouter: "openaiChat",
+  ollama: "openaiCompatible",
+  xai: "openaiCompatible",
+  "openai-compatible": "openaiCompatible",
+};
+
+export function resolveModelProfile(input: {
+  authType: ProviderAuthType;
+  family: ProviderFamily;
+  hintCapabilities?: Partial<ModelCapabilities>;
+  hintTransport?: ModelTransport;
+  modelId: string;
+  providerId?: string;
+}): ModelProfile {
+  const { authType, family, hintCapabilities, hintTransport, modelId } = input;
+  const oauthFlavor =
+    family === "openai" && authType === "oauth"
+      ? getOpenAiOAuthFlavor(input.providerId ?? "")
+      : null;
+
+  if (family === "openai" && authType === "oauth" && oauthFlavor === "chatgpt") {
+    // Official ChatGPT plan usage: public Responses API. The shared plan
+    // serves chat/reasoning models with vision, but never image generation
+    // (`subscription_sharing_unsupported_capability` rejects that route).
+    return {
+      transport: "openaiResponses",
+      capabilities: {
+        ...FAMILY_DEFAULT_CAPABILITIES.openai,
+        ...hintCapabilities,
+        tools: hintCapabilities?.tools ?? true,
+        imageGeneration: false,
+        imageInput: hintCapabilities?.imageInput ?? true,
+        reasoning:
+          hintCapabilities?.reasoning ??
+          modelIdLikelySupportsReasoning(modelId),
+      },
+    };
+  }
+
+  if (family === "openai" && authType === "oauth") {
+    return {
+      transport: "codexResponses",
+      capabilities: {
+        ...FAMILY_DEFAULT_CAPABILITIES.openai,
+        ...hintCapabilities,
+        tools: hintCapabilities?.tools ?? true,
+        imageGeneration: false,
+        imageInput: hintCapabilities?.imageInput ?? false,
+        reasoning:
+          hintCapabilities?.reasoning ??
+          modelIdLikelySupportsReasoning(modelId),
+      },
+    };
+  }
+
+  if (family === "openai" && authType === "apiKey") {
+    const isChatOnly = OPENAI_CHAT_ONLY_MODELS.has(modelId);
+
+    return {
+      transport:
+        hintTransport ?? (isChatOnly ? "openaiChat" : "openaiResponses"),
+      capabilities: {
+        ...FAMILY_DEFAULT_CAPABILITIES.openai,
+        ...hintCapabilities,
+        imageGeneration: hintCapabilities?.imageGeneration ?? !isChatOnly,
+        reasoning:
+          hintCapabilities?.reasoning ??
+          modelIdLikelySupportsReasoning(modelId),
+      },
+    };
+  }
+
+  return {
+    transport: hintTransport ?? FAMILY_DEFAULT_TRANSPORT[family],
+    capabilities: {
+      ...FAMILY_DEFAULT_CAPABILITIES[family],
+      ...hintCapabilities,
+      reasoning:
+        hintCapabilities?.reasoning ?? modelIdLikelySupportsReasoning(modelId),
+    },
+  };
+}

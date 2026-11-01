@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+  <ImageView
+    android:id="@+id/floating_button"
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:src="@drawable/floating_button_icon"
+    android:scaleType="centerInside"
+    android:background="@drawable/floating_button_bg"
+    android:contentDescription="Floating Panda Button" />
+
+  <ImageView
+    android:id="@+id/floating_close"
+    android:layout_width="24dp"
+    android:layout_height="24dp"
+    android:layout_gravity="top|end"
+    android:layout_margin="4dp"
+    android:src="@android:drawable/ic_menu_close_clear_cancel"
+    android:contentDescription="Close floating button" />
+
+</FrameLayout>

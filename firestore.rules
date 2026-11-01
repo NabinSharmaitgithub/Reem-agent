@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Task history - users can read/write their own tasks
+    match /taskHistory/{taskId} {
+      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+    }
+
+    // Developer messages - read only for all authenticated users
+    match /developerMessages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server/admin can write
+    }
+
+    // App settings - read only for all authenticated users
+    match /appSettings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server/admin can write
+    }
+
+    // Moments - users can read/write their own moments
+    match /moments/{momentId} {
+      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Triggers - users can read/write their own triggers
+    match /triggers/{triggerId} {
+      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

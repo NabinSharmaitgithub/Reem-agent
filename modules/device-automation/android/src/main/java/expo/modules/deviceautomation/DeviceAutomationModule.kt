@@ -1,5 +1,7 @@
 package expo.modules.deviceautomation
 
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
 import android.content.ComponentName
@@ -59,7 +61,7 @@ class DeviceAutomationModule : Module() {
     AsyncFunction("isAccessibilityEnabled") {
       val manager = reactContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
       val services = manager.getEnabledAccessibilityServiceList(
-        android.view.accessibility.android.view.accessibility.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+        AccessibilityServiceInfo.FEEDBACK_ALL_MASK
       )
       val ourComponent = ComponentName(
         reactContext.packageName,
@@ -123,7 +125,7 @@ class DeviceAutomationModule : Module() {
 
     AsyncFunction("getForegroundApp") {
       val manager = reactContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-      val services = manager.getEnabledAccessibilityServiceList(android.view.accessibility.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+      val services = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
       val ourComponent = ComponentName(
         reactContext.packageName,
         "expo.modules.deviceautomation.DeviceAccessibilityService",
@@ -263,19 +265,19 @@ class DeviceAutomationModule : Module() {
           "Accessibility service not connected. Enable Reem in Settings → Accessibility first.",
         )
       when (action.lowercase()) {
-        "back" -> service.performGlobalAction(android.view.accessibility.AccessibilityServiceInfo.GLOBAL_ACTION_BACK)
-        "home" -> service.performGlobalAction(android.view.accessibility.AccessibilityServiceInfo.GLOBAL_ACTION_HOME)
-        "recents" -> service.performGlobalAction(android.view.accessibility.AccessibilityServiceInfo.GLOBAL_ACTION_RECENTS)
+        "back" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+        "home" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        "recents" -> service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
         "notification_shade" -> {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            service.performGlobalAction(android.view.accessibility.AccessibilityServiceInfo.GLOBAL_ACTION_NOTIFICATION_SHADE)
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)
           } else {
             throw IllegalStateException("Notification shade action requires API 28+")
           }
         }
         "power_dialog" -> {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            service.performGlobalAction(android.view.accessibility.AccessibilityServiceInfo.GLOBAL_ACTION_POWER_DIALOG)
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG)
           } else {
             throw IllegalStateException("Power dialog action requires API 28+")
           }

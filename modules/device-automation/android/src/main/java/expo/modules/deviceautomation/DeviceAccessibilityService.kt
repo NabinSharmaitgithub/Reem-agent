@@ -1,6 +1,7 @@
 package expo.modules.deviceautomation
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.graphics.Rect
 import android.util.Log
@@ -49,9 +50,9 @@ class DeviceAccessibilityService : AccessibilityService() {
         AccessibilityEvent.TYPE_VIEW_FOCUSED or
         AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or
         AccessibilityEvent.TYPE_ANNOUNCEMENT
-      info.feedbackType = android.view.accessibility.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-      info.flags = android.view.accessibility.AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
-        android.view.accessibility.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+      info.feedbackType = AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+      info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
+        AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
       setServiceInfo(info)
     }
 

@@ -172,7 +172,6 @@ object DeviceAutomationState {
   private fun escapeJson(s: String): String =
     s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
 
-  fun getLatestHierarchyJson(): String? = latestHierarchyJson
   fun getForegroundPackage(): String? = latestForegroundPackage
   fun getForegroundActivity(): String? = latestForegroundActivity
   fun getLastUpdateMs(): Long = lastHierarchyUpdateMs

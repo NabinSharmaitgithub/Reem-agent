@@ -23,8 +23,24 @@ jobs:
       - name: Check if OTA is safe to publish
         id: guard
         shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          CHANGED=$(git diff --name-only HEAD^ HEAD || true)
+          if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "reason=This commit has no parent (for example, after a history reset)." >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping OTA because there is no parent commit to compare."
+            exit 0
+          fi
+
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "reason=The EXPO_TOKEN GitHub Actions secret is missing." >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping OTA because EXPO_TOKEN is not configured. Add it in repository Actions secrets to enable publishing."
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only HEAD^ HEAD)
           echo "$CHANGED"
 
           # Skip OTA when anything native-impacting changed — those require a new build.
@@ -90,4 +106,7 @@ jobs:
 
       - name: Skip OTA
         if: steps.guard.outputs.safe == 'false'
-        run: echo "OTA skipped due to native-impacting changes in this push."
+        env:
+          REASON: ${{ steps.guard.outputs.reason }}
+        run: |
+          echo "OTA skipped: ${REASON:-native-impacting changes in this push.}"

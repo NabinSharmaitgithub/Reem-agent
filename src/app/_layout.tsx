@@ -11,6 +11,7 @@ import { ScenePreviewHost } from "@/components/ui/video-preview-host";
 import { MixCheckHost } from "@/components/ui/video-mix-host";
 import { VideoRenderHost } from "@/components/ui/video-render-host";
 import { migrateAppDatabase } from "@/core/db/database";
+import { AuthProvider } from "@/modules/auth/AuthProvider";
 import { AppStateProvider } from "@/providers/app-state";
 import { HarnessProvider } from "@/providers/harness-state";
 import { UpdateProvider, useUpdate } from "@/providers/check-for-updates";
@@ -315,6 +316,7 @@ export default function MainLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
       <KeyboardProvider>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <AppQueryProvider>
@@ -342,6 +344,7 @@ export default function MainLayout() {
           </AppQueryProvider>
         </ThemeProvider>
       </KeyboardProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }

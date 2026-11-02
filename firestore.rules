@@ -1,39 +1,51 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read and write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Task history - users can read/write their own tasks
+    // Users can read and write their own profile
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Task history - users can read/write their own tasks.
+    // Reads use resource.data; writes use request.resource.data; deletes use resource.data.
     match /taskHistory/{taskId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.uid;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow get, list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
     // Developer messages - read only for all authenticated users
     match /developerMessages/{messageId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow write: if false; // Only server/admin can write
     }
 
     // App settings - read only for all authenticated users
     match /appSettings/{settingId} {
-      allow read: if request.auth != null;
+      allow read: if isSignedIn();
       allow write: if false; // Only server/admin can write
     }
 
     // Moments - users can read/write their own moments
     match /moments/{momentId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Triggers - users can read/write their own triggers
     match /triggers/{triggerId} {
-      allow read, write: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Default deny all other access

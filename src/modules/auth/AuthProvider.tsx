@@ -1,5 +1,5 @@
 import { auth, initializeFirebase } from "@/modules/auth/firebase";
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 export type UserRole = "free" | "pro";
@@ -35,24 +35,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<ReemUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const initRef = useRef(false);
 
-  const initialize = async () => {
+  const initialize = useCallback(async () => {
+    // Register the auth-state listener exactly once so repeated effect runs
+    // don't stack subscriptions or re-initialize Firebase.
+    if (initRef.current) return;
+    initRef.current = true;
     try {
       initializeFirebase();
       auth.onAuthStateChanged(async (firebaseUser: any) => {
-        if (firebaseUser) {
-          const userData = await getOrCreateUser(firebaseUser);
-          setUser(userData);
-        } else {
-          setUser(null);
+        try {
+          if (firebaseUser) {
+            const userData = await getOrCreateUser(firebaseUser);
+            setUser(userData);
+          } else {
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("[Auth] Auth state handler failed:", error);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       });
     } catch (error) {
       console.error("[Auth] Initialize failed:", error);
       setLoading(false);
     }
-  };
+  }, []);
 
   const getOrCreateUser = async (firebaseUser: any): Promise<ReemUser> => {
     const { db } = await import("@/modules/auth/firebase");
@@ -137,29 +147,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const incrementTaskCount = async (): Promise<boolean> => {
     if (!user) return false;
-    if (!canPerformTask()) return false;
 
     const { db } = await import("@/modules/auth/firebase");
     const today = new Date().toISOString().split("T")[0];
-    const nextUsed = user.lastTaskDate !== today ? 1 : user.dailyTasksUsed + 1;
+    const userRef = db.collection("users").doc(user.uid);
 
-    await db.collection("users").doc(user.uid).update({
-      dailyTasksUsed: nextUsed,
-      lastTaskDate: today,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      // Read and update inside a transaction so concurrent task starts cannot
+      // overwrite each other with the same dailyTasksUsed value.
+      const granted = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) return false;
 
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            dailyTasksUsed: nextUsed,
-            lastTaskDate: today,
-          }
-        : prev,
-    );
+        const data = snap.data();
+        if (data?.role === "pro") return true;
 
-    return true;
+        const lastTaskDate = data?.lastTaskDate ?? today;
+        const used = lastTaskDate !== today ? 0 : (data?.dailyTasksUsed ?? 0);
+        const limit = data?.dailyTasksLimit ?? 15;
+        if (used >= limit) return false;
+
+        tx.update(userRef, {
+          dailyTasksUsed: used + 1,
+          lastTaskDate: today,
+          updatedAt: new Date().toISOString(),
+        });
+        return true;
+      });
+
+      if (granted) {
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                dailyTasksUsed:
+                  prev.lastTaskDate !== today ? 1 : prev.dailyTasksUsed + 1,
+                lastTaskDate: today,
+              }
+            : prev,
+        );
+      }
+      return granted;
+    } catch (error) {
+      console.error("[Auth] incrementTaskCount failed:", error);
+      return false;
+    }
   };
 
   const resetDailyTasks = async () => {

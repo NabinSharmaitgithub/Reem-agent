@@ -1,0 +1,759 @@
+export type ProviderFamily =
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "on-device"
+  | "openrouter"
+  | "ollama"
+  | "xai"
+  | "openai-compatible";
+
+export type ProviderAuthType = "oauth" | "apiKey" | "none";
+export type DatabaseMode = "local" | "remote";
+export type FileContextSource = "workspace" | "external-folder";
+export type MessageRole = "system" | "user" | "assistant";
+export type MessageStatus = "streaming" | "completed" | "failed";
+export type ModelKind = "chat" | "small";
+export type ModelRef = `${string}/${string}`;
+export type ReasoningEffort =
+  "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ModelTransport =
+  | "anthropic"
+  | "codexResponses"
+  | "google"
+  | "onDevice"
+  | "openaiChat"
+  | "openaiCompatible"
+  | "openaiResponses";
+export type ToolApprovalMode = "ask" | "auto";
+export type AgentMode = "plan" | "build";
+export type AgentVisibilityMode = "primary" | "subagent" | "all";
+export type AgentToolPermissions = {
+  builtInTools?: Partial<Record<BuiltInToolKey, boolean>>;
+  mcpServers?: Record<string, boolean>;
+};
+export type ThemeMode = "system" | "light" | "dark";
+export type McpServerTransport = "http" | "sse";
+export type McpServerAuthMode = "none" | "headers" | "oauth";
+export type McpServerStatus = "untested" | "connected" | "failed";
+export type AgentRunStatus =
+  | "queued"
+  | "running"
+  | "waiting_for_approval"
+  | "waiting_for_question"
+  | "completed"
+  | "failed"
+  | "canceled"
+  | "resumable"
+  | "retrying";
+export type WorkspaceFileSourceKind = "artifact" | "created" | "imported";
+export type ExternalFolderPlatform = "android" | "ios" | "web";
+export type BuiltInToolKey =
+  | "workspaceListFiles"
+  | "workspaceRead"
+  | "workspaceWrite"
+  | "workspaceCreateFile"
+  | "workspaceRenderVideo"
+  | "workspaceGrep"
+  | "workspaceGlob"
+  | "workspaceEdit"
+  | "downloadFile"
+  | "folderListDirectory"
+  | "folderRead"
+  | "folderWrite"
+  | "folderCreateFile"
+  | "folderCreateDirectory"
+  | "folderRenameEntry"
+  | "folderMoveEntry"
+  | "folderDeleteEntry"
+  | "folderGrep"
+  | "folderGlob"
+  | "folderEdit"
+  | "todos"
+  | "question"
+  | "skill"
+  | "schedules"
+  | "workspaceFetchPage"
+  | "requestSecret"
+  | "deviceAutomation"
+  | "memory";
+export type BuiltInToolSettings = Record<BuiltInToolKey, boolean>;
+export type SkillFile = {
+  id: string;
+  path: string;
+  content: string;
+  mimeType: string | null;
+  size: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type PluginConfig = {
+  id: string;
+  name: string;
+  version: string;
+  description: string | null;
+  author: string | null;
+  filePath: string;
+  enabled: boolean;
+  options: Record<string, unknown> | null;
+  sourceUrl: string | null;
+  lastUpdateCheck: string | null;
+  lastError: string | null;
+  requiredSecrets: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+export type SkillConfig = {
+  id: string;
+  title: string;
+  description: string | null;
+  instructions: string;
+  sourceMarkdown: string | null;
+  enabled: boolean;
+  autoMatch: boolean;
+  matchKeywords: string[];
+  recommendedMcpServerIds: string[];
+  recommendedBuiltInToolKeys: BuiltInToolKey[];
+  skillFiles: SkillFile[];
+  createdAt: string;
+  updatedAt: string;
+};
+export type AgentDoc = {
+  id: string;
+  name: string;
+  content: string;
+  mimeType: string | null;
+  size: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type AgentConfig = {
+  id: string;
+  name: string;
+  description: string | null;
+  prompt: string | null;
+  mode: AgentVisibilityMode;
+  modelProviderId: string | null;
+  modelModelId: string | null;
+  temperature: number | null;
+  enabled: boolean;
+  hidden: boolean;
+  sourceMarkdown: string | null;
+  toolPermissions: AgentToolPermissions;
+  docs: AgentDoc[];
+  createdAt: string;
+  updatedAt: string;
+};
+export type SavedPrompt = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+export type MemoryEntry = {
+  id: string;
+  content: string;
+  enabled: boolean;
+  sourceConversationId: string | null;
+  sourceMessageId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+};
+export type MemoryEvent = {
+  id: string;
+  kind: "created" | "updated" | "deleted";
+  memoryId: string;
+  content: string;
+  previousContent: string | null;
+  reason: string | null;
+  createdAt: string;
+};
+export type PendingToolApprovalRequest = {
+  id: string;
+  inputSummary: string;
+  toolName: string;
+};
+export type PendingToolApproval = PendingToolApprovalRequest & {
+  chatTitle: string;
+  conversationId: string;
+  runId: string;
+};
+export type QuestionnaireItem = {
+  id: string;
+  prompt: string;
+  description?: string | null;
+  required?: boolean;
+  multiple?: boolean;
+  choices?: string[];
+  allowFreeform?: boolean;
+  freeformPlaceholder?: string | null;
+};
+export type PendingQuestionnaireRequest = {
+  id: string;
+  items: QuestionnaireItem[];
+};
+export type PendingQuestionnaireAnswer = {
+  id: string;
+  value: string | string[] | null;
+};
+export type PendingQuestionnaire = PendingQuestionnaireRequest & {
+  chatTitle: string;
+  conversationId: string;
+  runId: string;
+};
+export type PendingSecretRequestRequest = {
+  id: string;
+  scope: "plugin";
+  pluginId: string;
+  key: string;
+  purpose: string | null;
+};
+export type PendingSecretRequestAnswer =
+  | { status: "stored" }
+  | { status: "deferred" }
+  | { status: "aborted" };
+export type PendingSecretRequest = PendingSecretRequestRequest & {
+  chatTitle: string;
+  conversationId: string;
+  runId: string;
+  pluginName: string;
+  alreadyConfigured: boolean;
+};
+export type ModelUsageSnapshot = {
+  providerId: string;
+  providerLabel: string;
+  modelId: string;
+  modelLabel: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  costInput: number | null;
+  costOutput: number | null;
+  costTotal: number | null;
+  contextWindow: number | null;
+  remainingContext: number | null;
+  contextUsagePercent: number | null;
+};
+
+export type ModelCapabilities = {
+  imageGeneration: boolean;
+  imageInput: boolean;
+  audioInput: boolean;
+  videoInput: boolean;
+  reasoning: boolean;
+  tools: boolean;
+};
+
+export type GeneratedImageAttachment = {
+  id: string;
+  mimeType: string;
+  uri: string;
+};
+
+/** An MP4 produced by the `renderVideo` tool and attached to the reply. */
+export type GeneratedVideoAttachment = {
+  fileId: string;
+  displayName: string;
+  mimeType: string;
+  size: number;
+  /** `workspace://<id>` reference, resolved to a local file for playback. */
+  uri: string;
+};
+
+export type ToolExecutionRecord = {
+  /** Full reusable media result lives in the workspace, not a truncated trace. */
+  mediaResult?: {
+    sourceFileId: string;
+    sourceUpdatedAt: string;
+    resultFileId: string;
+  };
+  /** Stable event order within this assistant turn (including reasoning). */
+  traceOrder?: number;
+  preview?: {
+    title: string;
+    text?: string;
+    uri?: string;
+    mimeType?: string;
+    truncated?: boolean;
+    images?: { uri: string; title: string }[];
+  };
+  id?: string;
+  toolName: string;
+  status: "running" | "completed" | "failed";
+  inputSummary: string;
+  outputSummary: string | null;
+  error: string | null;
+  createdAt: string;
+  /**
+   * Bounded line-diff of a text edit, captured by the `edit` tool when the
+   * source file is small enough. Rendered inside the expanded trace row.
+   */
+  diff?: string | null;
+  /** Diff stat for the row description, like `+48 −12` (shadcn Commit pattern). */
+  diffStat?: string | null;
+  /** Captured Termux command details for the read-only command output UI. */
+  termux?: {
+    command: string;
+    output: string | null;
+    taskId: string | null;
+  };
+  /**
+   * Explicit "announce when done" request armed by the agent tool. Persisted
+   * with the message metadata so it survives run resume without a migration.
+   */
+  announcement?: {
+    message: string | null;
+  } | null;
+};
+
+export type PromptArtifact = {
+  id: string;
+  category: "model" | "tool";
+  fileId: string;
+  displayName: string;
+  relativePath: string;
+  createdAt: string;
+};
+
+export type ExecutionTimelineEvent = {
+  id: string;
+  kind: "run" | "prompt" | "tool" | "image";
+  status: "pending" | "completed" | "failed" | "info";
+  title: string;
+  detail: string | null;
+  createdAt: string;
+};
+
+export type ReasoningBlock = {
+  textOffset?: number;
+  traceOrder?: number;
+  id: string;
+  text: string;
+  startedAt: string;
+  completedAt: string | null;
+};
+
+export type TodoStatus = "pending" | "in_progress" | "completed";
+
+export type TodoListItem = {
+  id: string;
+  title: string;
+  status: TodoStatus;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type AnnouncementMode = "background" | "always";
+
+export type NotificationSettings = {
+  approvalRequests: boolean;
+  runFinished: boolean;
+  questionRequests: boolean;
+  announcementEnabled: boolean;
+  announcementMode: AnnouncementMode;
+  announceFinished: boolean;
+  announceQuestions: boolean;
+  announcePermissions: boolean;
+};
+
+export type ScheduleFrequency =
+  | "hourly"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "custom";
+
+export type Schedule = {
+  id: string;
+  title: string;
+  prompt: string;
+  expression: string;
+  timezone: string;
+  providerId: string;
+  modelId: string;
+  agentId: string | null;
+  autoApprove: boolean;
+  enabled: boolean;
+  conversationId: string | null;
+  externalFolderSession: ExternalFolderSession | null;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScheduleRunStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "skipped";
+
+export type ScheduleRun = {
+  id: string;
+  scheduleId: string;
+  runId: string | null;
+  status: ScheduleRunStatus;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+};
+
+export type MessageMetadata = {
+  agentName?: string | null;
+  appliedSkillIds?: string[];
+  executionTimeline?: ExecutionTimelineEvent[];
+  externalFolderDisplayName?: string | null;
+  fileContextSource?: FileContextSource;
+  generatedImages?: GeneratedImageAttachment[];
+  generatedVideos?: GeneratedVideoAttachment[];
+  memoryEvents?: MemoryEvent[];
+  promptArtifacts?: PromptArtifact[];
+  reasoning?: ReasoningBlock[];
+  runId?: string | null;
+  /** Set on a user message that was steered into a running turn. */
+  steeredIntoRunId?: string | null;
+  selectedFileIds?: string[];
+  termuxRunAnchors?: TermuxRunAnchor[];
+  todoList?: TodoListItem[];
+  pluginOutputs?: PluginOutputRecord[];
+  toolExecutions?: ToolExecutionRecord[];
+  toolRunAnchors?: ToolRunAnchor[];
+  usage?: ModelUsageSnapshot | null;
+};
+
+export type PluginOutputRecord = {
+  attachments?: import("@/modules/plugins/types").PluginAttachment[];
+  metadata?: Record<string, unknown>;
+  mime?: string;
+  output: string;
+  pluginId: string;
+  title?: string;
+  toolName: string;
+};
+
+export type TermuxRunAnchor = {
+  executionId: string;
+  textOffset: number;
+};
+
+/**
+ * Text offset where a tool execution happened, so its row can be spliced
+ * inline into the reply where the model actually wrote around it (new
+ * writer; supercedes the termux-only anchors below, which still exist on
+ * older messages so the reader merges both).
+ */
+export type ToolRunAnchor = {
+  executionId: string;
+  textOffset: number;
+};
+
+export type AgentRun = {
+  id: string;
+  conversationId: string;
+  status: AgentRunStatus;
+  userMessageId: string;
+  assistantMessageId: string;
+  providerId: string;
+  modelId: string;
+  input: string;
+  fileContextSource: FileContextSource | null;
+  selectedFileIds: string[];
+  externalFolderSession: ExternalFolderSession | null;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  lastError: string | null;
+  resumeCount: number;
+  retryCount: number;
+  maxRetries: number;
+  lastRetryAt: string | null;
+  agentId: string | null;
+  agentMode: AgentMode;
+  autoApprove: boolean;
+};
+
+export type ExternalFolderSession = {
+  uri: string;
+  displayName: string;
+  platform: ExternalFolderPlatform;
+  sourceType: "external-folder";
+  grantedAt: string;
+};
+
+export type ProviderConfig = {
+  id: string;
+  family: ProviderFamily;
+  label: string;
+  authType: ProviderAuthType;
+  baseUrl: string | null;
+  enabled: boolean;
+  oauthAccountEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type McpServerOAuthMode = "proxy" | null;
+
+export type McpServerConfig = {
+  id: string;
+  label: string;
+  url: string;
+  transport: McpServerTransport;
+  authMode: McpServerAuthMode;
+  oauthMode: McpServerOAuthMode;
+  enabled: boolean;
+  headerNames: string[];
+  oauthClientId: string | null;
+  oauthAuthorizationUrl: string | null;
+  oauthTokenUrl: string | null;
+  oauthScopes: string | null;
+  oauthAllowedAuthOrigin: string | null;
+  lastStatus: McpServerStatus;
+  lastError: string | null;
+  toolCount: number | null;
+  serverInfo: Record<string, unknown> | null;
+  serverInstructions: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ModelPreset = {
+  id: string;
+  providerId: string;
+  modelId: string;
+  label: string | null;
+  isDefault: boolean;
+  options: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProviderAccount = {
+  id: string;
+  providerId: string;
+  label: string;
+  credentialKind: "apiKey" | "oauth";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Conversation = {
+  id: string;
+  title: string;
+  providerId: string | null;
+  modelId: string | null;
+  reasoningEffort: ReasoningEffort;
+  agentId: string | null;
+  agentMode: AgentMode;
+  selectedFileIds: string[];
+  selectedMcpServerIds: string[] | null;
+  selectedSkillIds: string[];
+  externalFolderSession: ExternalFolderSession | null;
+  pinnedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+};
+
+export type StoredMessage = {
+  id: string;
+  conversationId: string;
+  role: MessageRole;
+  content: string;
+  metadata: MessageMetadata | null;
+  status: MessageStatus;
+  error: string | null;
+  sequence: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceFile = {
+  id: string;
+  displayName: string;
+  originalName: string | null;
+  mimeType: string | null;
+  size: number | null;
+  relativePath: string;
+  sourceKind: WorkspaceFileSourceKind;
+  /** Markdown/plain-text source the document (docx/pdf/pptx/xlsx) was generated from, used to regenerate it on update. */
+  sourceMarkdown: string | null;
+  /** JSON snapshot of the document's original styling (docx), captured on import so updates keep the look. */
+  sourceSpec: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * One heading-delimited piece of a document's stored source Markdown. Large
+ * documents are split into ordered sections so the agent can read and update
+ * them individually instead of handling the whole source at once.
+ */
+export type DocumentSection = {
+  id: string;
+  fileId: string;
+  /** 0-based order within the document. */
+  position: number;
+  /** Heading text without the leading `#` markers. */
+  title: string;
+  /** Heading level 1-6. */
+  level: number;
+  /** Exact Markdown slice for the section, including its heading line. */
+  body: string;
+  charCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * How a prompt submitted while a run is active gets delivered:
+ * - "steer": injected into the running turn at the next step boundary, as
+ *   guidance for the task in progress (not a new task).
+ * - "queue": parked as the next normal user turn, delivered after the
+ *   current run finishes (steers always win over queued items).
+ */
+export type PendingInputDelivery = "steer" | "queue";
+
+/**
+ * A user prompt that was admitted while the conversation's run was busy.
+ * Pending rows are deleted on delivery or cancellation (opencode-style
+ * pending-only inbox).
+ */
+export type PendingInput = {
+  id: string;
+  conversationId: string;
+  content: string;
+  metadata: MessageMetadata | null;
+  delivery: PendingInputDelivery;
+  createdAt: string;
+};
+
+export type SendMessageInput = {
+  content: string;
+  fileContextSource?: FileContextSource;
+  selectedFileIds?: string[];
+  /** Mid-run delivery mode; only used when the conversation is busy. */
+  delivery?: PendingInputDelivery;
+  /**
+   * Target a specific conversation instead of the current one. Used to
+   * promote stranded/queued pending inputs (they may belong to a chat the
+   * user is no longer viewing).
+   */
+  conversationId?: string;
+};
+
+export type AppSettings = {
+  activeConversationId: string | null;
+  activeModelRef: ModelRef | null;
+  builtInToolSettings: BuiltInToolSettings;
+  databaseMode: DatabaseMode;
+  databaseUrl: string | null;
+  memoryEnabled: boolean;
+  schedulingEnabled: boolean;
+  themeMode: ThemeMode;
+  notificationSettings: NotificationSettings;
+};
+
+export type CuratedModelDefinition = {
+  capabilities?: Partial<ModelCapabilities>;
+  contextWindow?: number | null;
+  id: string;
+  isFree?: boolean;
+  kind: ModelKind;
+  label: string;
+  outputType?: "image" | "text";
+  options?: Record<string, unknown>;
+  transport?: ModelTransport;
+};
+
+export type ResolvedModel = {
+  capabilities: ModelCapabilities;
+  ref: ModelRef;
+  providerId: string;
+  providerFamily: ProviderFamily;
+  providerAuthType: ProviderAuthType;
+  providerLabel: string;
+  modelId: string;
+  label: string;
+  outputType: "image" | "text";
+  isDefault: boolean;
+  isFree: boolean;
+  source: "suggested" | "custom";
+  active: boolean;
+  supportsTools: boolean;
+  supportsImageInput: boolean;
+  supportsAudioInput: boolean;
+  supportsVideoInput: boolean;
+  supportsImageGeneration: boolean;
+  supportsReasoning: boolean;
+  transport: ModelTransport;
+  options: Record<string, unknown> | null;
+  contextWindow: number | null;
+};
+
+export type ResolvedConfig = {
+  activeProviderIds: string[];
+  providers: ProviderConfig[];
+  modelPresets: ModelPreset[];
+  suggestedModelsByProvider: Record<string, CuratedModelDefinition[]>;
+  providerModelDiscovery: Record<
+    string,
+    { error: string | null; status: "connected" | "failed" }
+  >;
+  availableModels: ResolvedModel[];
+  activeModels: ResolvedModel[];
+  currentModel: ResolvedModel | null;
+  currentModelSupportsImageGeneration: boolean;
+  currentModelSupportsImageInput: boolean;
+  currentModelSupportsAudioInput: boolean;
+  currentModelSupportsVideoInput: boolean;
+  currentModelSupportsTools: boolean;
+  databaseMode: DatabaseMode;
+  databaseUrl: string | null;
+};
+
+export type AppStateSnapshot = {
+  activeProviderAccountIds: Record<string, string | null>;
+  agentRuns: AgentRun[];
+  agents: AgentConfig[];
+  conversations: Conversation[];
+  conversationApprovalModes?: Record<string, ToolApprovalMode>;
+  conversationApprovedTools?: Record<string, string[]>;
+  currentConversation: Conversation | null;
+  currentSelectedAgentId: string | null;
+  currentSelectedFileIds: string[];
+  currentSelectedMcpServerIds: string[] | null;
+  currentSelectedSkillIds: string[];
+  memory: MemoryEntry | null;
+  mcpServers: McpServerConfig[];
+  messages: StoredMessage[];
+  pendingInputs: PendingInput[];
+  plugins: PluginConfig[];
+  providerAccounts: ProviderAccount[];
+  savedPrompts: SavedPrompt[];
+  schedules: Schedule[];
+  skills: SkillConfig[];
+  workspaceFiles: WorkspaceFile[];
+  resolvedConfig: ResolvedConfig;
+  settings: AppSettings;
+};
+
+export function createModelRef(providerId: string, modelId: string): ModelRef {
+  return `${providerId}/${modelId}`;
+}
+
+export function parseModelRef(modelRef: ModelRef) {
+  const separatorIndex = modelRef.indexOf("/");
+
+  if (separatorIndex <= 0 || separatorIndex === modelRef.length - 1) {
+    throw new Error(`Invalid model ref: ${modelRef}`);
+  }
+
+  return {
+    providerId: modelRef.slice(0, separatorIndex),
+    modelId: modelRef.slice(separatorIndex + 1),
+  };
+}

@@ -1,0 +1,112 @@
+name: EAS Update (OTA)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: eas-update-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if OTA is safe to publish
+        id: guard
+        shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "reason=This commit has no parent (for example, after a history reset)." >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping OTA because there is no parent commit to compare."
+            exit 0
+          fi
+
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "reason=The EXPO_TOKEN GitHub Actions secret is missing." >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping OTA because EXPO_TOKEN is not configured. Add it in repository Actions secrets to enable publishing."
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only HEAD^ HEAD)
+          echo "$CHANGED"
+
+          # Skip OTA when anything native-impacting changed — those require a new build.
+          if echo "$CHANGED" | grep -qE '^(package\.json|app\.json|eas\.json|plugins/|modules/|android/|ios/)'; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "Native-impacting files changed. Skipping OTA — run a new EAS build instead."
+            exit 0
+          fi
+
+          # Nothing bundled to ship: Markdown is never part of the JS bundle, and
+          # catalog/*.json is re-fetched from GitHub raw at runtime (30-min TTL,
+          # bundled copy is only the offline fallback), so a catalog-only push
+          # reaches devices without an OTA. Mixed pushes (docs + src) still publish.
+          if [ -n "$CHANGED" ] && [ -z "$(echo "$CHANGED" | grep -vE '(^catalog/|\.md$)' || true)" ]; then
+            echo "safe=false" >> "$GITHUB_OUTPUT"
+            echo "Only docs/catalog files changed. Skipping OTA — catalogs refresh from GitHub raw."
+            exit 0
+          fi
+
+          echo "safe=true" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        if: steps.guard.outputs.safe == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.16.1
+
+      - name: Set up Node.js
+        if: steps.guard.outputs.safe == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.guard.outputs.safe == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Pinned so a surprise eas-cli release can't break the publish step.
+      # Bump deliberately after checking its changelog.
+      - name: Install EAS CLI
+        if: steps.guard.outputs.safe == 'true'
+        run: npm install -g eas-cli@25.2.0
+
+      # The commit message goes through env, never through ${{ }} inside the
+      # script: GitHub writes env values into the process environment without
+      # shell parsing, so quotes, backticks and newlines stay inert. Inlining
+      # ${{ github.event.head_commit.message }} here let a " in the message
+      # close the shell quote, split the message into extra positional
+      # arguments, and make `eas update` exit 1 immediately (run #7).
+      - name: Publish OTA update
+        if: steps.guard.outputs.safe == 'true'
+        shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 1
+          OTA_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          eas update \
+            --branch production \
+            --platform android \
+            --message "${OTA_MESSAGE%%$'\n'*}"
+
+      - name: Skip OTA
+        if: steps.guard.outputs.safe == 'false'
+        env:
+          REASON: ${{ steps.guard.outputs.reason }}
+        run: |
+          echo "OTA skipped: ${REASON:-native-impacting changes in this push.}"

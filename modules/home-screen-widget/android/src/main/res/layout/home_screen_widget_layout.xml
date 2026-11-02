@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#208AEF"
+    android:padding="8dp">
+
+  <TextView
+      android:id="@+id/widget_title"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Reem"
+      android:textColor="#FFFFFF"
+      android:textSize="20sp"
+      android:textStyle="bold"
+      android:layout_gravity="center_horizontal"
+      android:paddingBottom="4dp" />
+
+  <ImageView
+      android:id="@+id/widget_voice_button"
+      android:layout_width="48dp"
+      android:layout_height="48dp"
+      android:layout_gravity="center_horizontal"
+      android:src="@android:drawable/ic_input_get"
+      android:contentDescription="Voice input" />
+
+</LinearLayout>

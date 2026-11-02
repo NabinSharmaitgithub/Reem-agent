@@ -1,0 +1,19 @@
+packages:
+  - "."
+
+overrides:
+  "@ai-sdk/provider": 4.0.26
+  "@ai-sdk/provider-utils": 5.0.58
+
+patchedDependencies:
+  "@ai-sdk/mcp@2.0.7": patches/@ai-sdk__mcp@2.0.7.patch
+  "expo-ai-kit@0.11.1": patches/expo-ai-kit@0.11.1.patch
+  "react-native-css-interop@0.2.6": patches/react-native-css-interop@0.2.6.patch
+
+allowBuilds:
+  expo-libghostty: true
+  dooboolab-welcome: true
+  unrs-resolver: true
+onlyBuiltDependencies:
+  - unrs-resolver
+  - dooboolab-welcome

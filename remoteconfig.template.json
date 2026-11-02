@@ -1,0 +1,29 @@
+{
+  "parameters": {
+    "developer_message": {
+      "value": "Reem is an experimental AI assistant. Use with care."
+    },
+    "pro_feature_enabled": {
+      "value": "false"
+    },
+    "wake_word_enabled": {
+      "value": "false"
+    },
+    "daily_free_limit": {
+      "value": "15"
+    },
+    "gemini_api_endpoint": {
+      "value": ""
+    },
+    "gcs_bucket_name": {
+      "value": "reem-8fd60.firebasestorage.app"
+    },
+    "max_daily_tasks": {
+      "value": "15"
+    },
+    "maintenance_mode": {
+      "value": "false"
+    }
+  },
+  "conditions": []
+}

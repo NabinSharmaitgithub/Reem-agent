@@ -1,0 +1,129 @@
+name: Android APK Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if app version changed
+        id: version
+        shell: bash
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+          # Compare against the latest release tag, not the previous commit,
+          # so merges between branches with different versions don't retrigger.
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          TAG_VERSION=${LATEST_TAG#v}
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Latest tag: ${LATEST_TAG:-none}"
+
+          echo "VERSION=$CURRENT_VERSION" >> "$GITHUB_ENV"
+
+          if [ "$CURRENT_VERSION" = "$TAG_VERSION" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version matches latest tag. Skipping release."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New version detected. Creating/re-publishing release."
+          fi
+
+      - name: Set up pnpm
+        if: steps.version.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.16.1
+
+      - name: Set up Node.js
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.version.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up JDK 17
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: steps.version.outputs.changed == 'true'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "cmdline-tools;latest platform-tools"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: true
+
+      - name: Install Android SDK components
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Prebuild Android project
+        if: steps.version.outputs.changed == 'true'
+        run: npx expo prebuild --platform android
+
+      - name: Build APK with Gradle
+        if: steps.version.outputs.changed == 'true'
+        shell: bash
+        run: |
+          cd android
+          chmod +x gradlew
+          # --continue keeps compiling independent modules after one fails so a
+          # single CI run surfaces every remaining Kotlin error, not just the
+          # first module in the task order.
+          ./gradlew assembleRelease -x lint -x lintVitalRelease --continue --console=plain
+
+      - name: Copy APK for release
+        if: steps.version.outputs.changed == 'true'
+        shell: bash
+        run: |
+          cp android/app/build/outputs/apk/release/*.apk mobile-agent-${{ env.VERSION }}.apk
+
+      - name: Upload APK artifact
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reem-android-v${{ env.VERSION }}
+          path: mobile-agent-${{ env.VERSION }}.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Mobile Agent v${{ env.VERSION }}
+          files: mobile-agent-${{ env.VERSION }}.apk
+          body_path: .release-notes.md
+          prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') || contains(env.VERSION, 'rc') || contains(env.VERSION, 'pre') }}
+
+      - name: Skip release
+        if: steps.version.outputs.changed == 'false'
+        run: echo "Version unchanged. APK build and GitHub release skipped."

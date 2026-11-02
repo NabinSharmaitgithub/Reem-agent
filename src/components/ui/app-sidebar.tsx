@@ -1,0 +1,667 @@
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "@/components/ui/modal";
+import {
+  Sidebar,
+  SidebarClose,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import { useAppState } from "@/hooks/use-app-state";
+import { useChat } from "@/hooks/use-chat";
+import { usePathname, useRouter } from "expo-router";
+import {
+  Download,
+  ChevronDown,
+  Edit,
+  EllipsisVertical,
+  Library,
+  Pause,
+  Pencil,
+  Pin,
+  PinOff,
+  Settings2,
+  Trash2,
+  Upload,
+  Users,
+} from "lucide-react-native";
+import { useState, memo, useCallback, useMemo } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useDerivedValue,
+  useReducedMotion,
+  withTiming,
+} from "react-native-reanimated";
+
+import { ChatImportDrawer } from "@/components/chat/chat-import-drawer";
+import { ExportChatDrawer } from "@/components/chat/export-chat-drawer";
+import type { Conversation } from "@/core/types/app-state";
+import { cn } from "@/core/utils";
+import { useTheme } from "@/hooks/use-theme";
+import { useHarness } from "@/providers/harness-state";
+
+function SessionSectionChevron({
+  open,
+  color,
+}: {
+  open: boolean;
+  color: string;
+}) {
+  const reducedMotion = useReducedMotion();
+  const rotation = useDerivedValue(() =>
+    withTiming(open ? 180 : 0, { duration: reducedMotion ? 0 : 160 }),
+  );
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+  return (
+    <Animated.View style={style}>
+      <ChevronDown color={color} size={16} />
+    </Animated.View>
+  );
+}
+
+export function AppSidebar() {
+  const harness = useHarness();
+  const [openCodeSessionsOpen, setOpenCodeSessionsOpen] = useState(true);
+  const theme = useTheme();
+  const pathname = usePathname();
+  const router = useRouter();
+  const settingsActive =
+    pathname === "/settings" || pathname.startsWith("/settings/");
+  const agentsActive = pathname === "/settings/agents";
+  const { hydrating } = useAppState();
+  const {
+    conversations,
+    createConversation,
+    currentConversation,
+    deleteConversation,
+    renameConversation,
+    runStatusByConversation,
+    selectConversation,
+    setConversationPinned,
+  } = useChat();
+  const [renameTarget, setRenameTarget] = useState<Conversation | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [importDrawerOpen, setImportDrawerOpen] = useState(false);
+  const [exportConversationId, setExportConversationId] = useState<
+    string | null
+  >(null);
+  const pinnedConversations = useMemo(
+    () => conversations.filter((conversation) => conversation.pinnedAt),
+    [conversations],
+  );
+  const otherConversations = useMemo(
+    () => conversations.filter((conversation) => !conversation.pinnedAt),
+    [conversations],
+  );
+  const pinnedCount = pinnedConversations.length;
+  const currentConversationId = currentConversation?.id;
+
+  const handleExportConversation = useCallback((conversationId: string) => {
+    setExportConversationId(conversationId);
+  }, []);
+
+  const handleRenameRequest = useCallback((conversation: Conversation) => {
+    setRenameTarget(conversation);
+    setRenameTitle(conversation.title);
+    setRenameError(null);
+  }, []);
+
+  const handleSelectConversation = useCallback(
+    (conversationId: string) => {
+      selectConversation(conversationId)
+        .then(() => {
+          router.dismissTo("/");
+        })
+        .catch(console.error);
+    },
+    [router, selectConversation],
+  );
+
+  const handleTogglePin = useCallback(
+    (conversationId: string, pinned: boolean) => {
+      setConversationPinned(conversationId, !pinned).catch(console.error);
+    },
+    [setConversationPinned],
+  );
+
+  const handleDeleteConversation = useCallback(
+    (conversationId: string) => {
+      deleteConversation(conversationId).catch(console.error);
+    },
+    [deleteConversation],
+  );
+
+  function renderConversation(conversation: (typeof conversations)[number]) {
+    return (
+      <ConversationRow
+        key={conversation.id}
+        active={conversation.id === currentConversationId}
+        conversation={conversation}
+        onDelete={handleDeleteConversation}
+        onExport={handleExportConversation}
+        onRename={handleRenameRequest}
+        onSelect={handleSelectConversation}
+        onTogglePin={handleTogglePin}
+        pinnedCount={pinnedCount}
+        runStatus={runStatusByConversation[conversation.id]}
+      />
+    );
+  }
+
+  const submitRename = () => {
+    if (!renameTarget || !renameTitle.trim() || renaming) {
+      return;
+    }
+
+    setRenaming(true);
+    setRenameError(null);
+    renameConversation(renameTarget.id, renameTitle)
+      .then(() => {
+        setRenameTarget(null);
+      })
+      .catch((renameFailure) => {
+        setRenameError(
+          renameFailure instanceof Error
+            ? renameFailure.message
+            : "Could not rename this chat.",
+        );
+      })
+      .finally(() => {
+        setRenaming(false);
+      });
+  };
+
+  return (
+    <>
+      <Sidebar>
+        <SidebarHeader className="min-h-8 flex-row items-center justify-between pb-0">
+          <Text
+            className="min-w-0 flex-1 font-sans text-2xl font-semibold text-foreground dark:text-foreground-dark"
+            numberOfLines={1}
+          >
+            Mobile Agent
+          </Text>
+          <View className="flex-row items-center gap-sp-1">
+            <SidebarClose asChild>
+              <Button
+                accessibilityLabel="Import chat"
+                className="h-10 w-10 shrink-0"
+                onPress={() => {
+                  setImportDrawerOpen(true);
+                }}
+                size="icon"
+                variant="ghost"
+              >
+                <Upload color={theme.text} size={20} />
+              </Button>
+            </SidebarClose>
+            <SidebarClose asChild>
+              <Button
+                accessibilityLabel="New chat"
+                className="h-10 w-10 shrink-0"
+                onPress={() => {
+                  createConversation()
+                    .then(() => {
+                      router.dismissTo("/");
+                    })
+                    .catch(console.error);
+                }}
+                size="icon"
+                variant="ghost"
+              >
+                <Edit color={theme.text} size={20} />
+              </Button>
+            </SidebarClose>
+          </View>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu className="gap-1">
+              <SidebarMenuItem>
+                <SidebarClose asChild>
+                  <SidebarMenuButton
+                    className="!min-h-10 !px-0 !py-sp-1"
+                    isActive={pathname === "/library"}
+                    leftIcon={
+                      <Library
+                        color={
+                          pathname === "/library"
+                            ? theme.background
+                            : theme.text
+                        }
+                        size={20}
+                      />
+                    }
+                    onPress={() => {
+                      if (pathname !== "/library") {
+                        router.dismissTo("/");
+                        router.push("/library");
+                      }
+                    }}
+                  >
+                    <Text
+                      className={cn(
+                        "font-sans text-lg font-medium",
+                        pathname === "/library"
+                          ? "text-background dark:text-background-dark"
+                          : "text-foreground dark:text-foreground-dark",
+                      )}
+                    >
+                      Library
+                    </Text>
+                  </SidebarMenuButton>
+                </SidebarClose>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarClose asChild>
+                  <SidebarMenuButton
+                    className="!min-h-10 !px-0 !py-sp-1"
+                    isActive={agentsActive}
+                    leftIcon={
+                      <Users
+                        color={agentsActive ? theme.background : theme.text}
+                        size={20}
+                      />
+                    }
+                    onPress={() => {
+                      if (!agentsActive) {
+                        router.dismissTo("/");
+                        router.push("/settings/agents");
+                      }
+                    }}
+                  >
+                    <Text
+                      className={cn(
+                        "font-sans text-lg font-medium",
+                        agentsActive
+                          ? "text-background dark:text-background-dark"
+                          : "text-foreground dark:text-foreground-dark",
+                      )}
+                    >
+                      Agents
+                    </Text>
+                  </SidebarMenuButton>
+                </SidebarClose>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+          {pinnedConversations.length > 0 ? (
+            <SidebarGroup>
+              <SidebarGroupLabel
+                style={{ fontFamily: "Geist_600SemiBold" }}
+                className="!px-0 text-sm font-semibold normal-case tracking-normal text-foreground dark:text-foreground-dark"
+              >
+                Pinned
+              </SidebarGroupLabel>
+              <SidebarMenu>
+                {pinnedConversations.map(renderConversation)}
+              </SidebarMenu>
+            </SidebarGroup>
+          ) : null}
+          {harness.connected ? (
+            <SidebarGroup>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="OpenCode sessions"
+                accessibilityState={{ expanded: openCodeSessionsOpen }}
+                className="min-h-10 flex-row items-center gap-sp-2"
+                onPress={() => setOpenCodeSessionsOpen((value) => !value)}
+              >
+                <Text
+                  style={{ fontFamily: "Geist_600SemiBold" }}
+                  className="font-sans text-sm font-semibold text-foreground dark:text-foreground-dark"
+                >
+                  OpenCode sessions
+                </Text>
+                <SessionSectionChevron
+                  open={openCodeSessionsOpen}
+                  color={theme.textSecondary}
+                />
+              </Pressable>
+              {openCodeSessionsOpen ? (
+                <SidebarMenu>
+                  {harness.sessions.map((session) => (
+                    <SidebarMenuItem key={session.id}>
+                      <SidebarClose asChild>
+                        <SidebarMenuButton
+                          isActive={
+                            harness.active && harness.sessionID === session.id
+                          }
+                          onPress={() => {
+                            void harness
+                              .selectSession(session.id)
+                              .then(() => router.dismissTo("/"));
+                          }}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            className={cn(
+                              "flex-1 font-sans text-sm",
+                              harness.active && harness.sessionID === session.id
+                                ? "text-background dark:text-background-dark"
+                                : "text-foreground dark:text-foreground-dark",
+                            )}
+                          >
+                            {session.title || "OpenCode chat"}
+                          </Text>
+                        </SidebarMenuButton>
+                      </SidebarClose>
+                    </SidebarMenuItem>
+                  ))}
+                  {harness.sessions.length === 0 ? (
+                    <Text className="font-sans text-sm text-muted-foreground dark:text-muted-foreground-dark">
+                      No sessions yet
+                    </Text>
+                  ) : null}
+                </SidebarMenu>
+              ) : null}
+            </SidebarGroup>
+          ) : null}
+          <SidebarGroup>
+            <SidebarGroupLabel
+              style={{ fontFamily: "Geist_600SemiBold" }}
+              className="!px-0 text-sm font-semibold normal-case tracking-normal text-foreground dark:text-foreground-dark"
+            >
+              Chats
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {otherConversations.map(renderConversation)}
+              {conversations.length === 0 ? (
+                <SidebarMenuItem>
+                  {hydrating ? (
+                    <View className="flex-row items-center gap-sp-2 px-sp-2 py-sp-2">
+                      <ActivityIndicator
+                        color={theme.textSecondary}
+                        size="small"
+                      />
+                      <Text className="font-sans text-sm text-muted-foreground dark:text-muted-foreground-dark">
+                        Loading chats…
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text className="px-sp-2 font-sans text-sm text-muted-foreground dark:text-muted-foreground-dark">
+                      No chats yet. Start a new conversation.
+                    </Text>
+                  )}
+                </SidebarMenuItem>
+              ) : null}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="pt-0">
+          <View className="border-t border-border pt-sp-2 dark:border-border-dark">
+            <SidebarClose asChild>
+              <SidebarMenuButton
+                className="!min-h-11 !py-sp-3"
+                isActive={settingsActive}
+                leftIcon={
+                  <Settings2
+                    color={settingsActive ? theme.background : theme.text}
+                    size={16}
+                  />
+                }
+                onPress={() => {
+                  if (pathname !== "/settings") {
+                    router.dismissTo("/");
+                    router.push("/settings");
+                  }
+                }}
+              >
+                Settings
+              </SidebarMenuButton>
+            </SidebarClose>
+          </View>
+        </SidebarFooter>
+      </Sidebar>
+      <Modal
+        dismissible={!renaming}
+        onOpenChange={(open) => {
+          if (!open && !renaming) {
+            setRenameTarget(null);
+            setRenameError(null);
+          }
+        }}
+        open={renameTarget !== null}
+      >
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Rename chat</ModalTitle>
+            <ModalDescription>
+              Choose a title that makes this chat easy to find.
+            </ModalDescription>
+          </ModalHeader>
+          <ModalBody>
+            <Input
+              accessibilityLabel="Chat title"
+              autoFocus
+              maxLength={80}
+              onChangeText={setRenameTitle}
+              onSubmitEditing={submitRename}
+              returnKeyType="done"
+              selectTextOnFocus
+              value={renameTitle}
+            />
+            {renameError ? (
+              <Text className="font-sans text-sm text-destructive dark:text-destructive-dark">
+                {renameError}
+              </Text>
+            ) : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              disabled={renaming}
+              onPress={() => {
+                setRenameTarget(null);
+                setRenameError(null);
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!renameTitle.trim()}
+              loading={renaming}
+              onPress={submitRename}
+              size="sm"
+            >
+              Rename
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      <ChatImportDrawer
+        onOpenChange={setImportDrawerOpen}
+        open={importDrawerOpen}
+      />
+      <ExportChatDrawer
+        conversationId={exportConversationId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExportConversationId(null);
+          }
+        }}
+        open={exportConversationId !== null}
+      />
+    </>
+  );
+}
+
+const ConversationRow = memo(function ConversationRow({
+  active,
+  conversation,
+  onDelete,
+  onExport,
+  onRename,
+  onSelect,
+  onTogglePin,
+  pinnedCount,
+  runStatus,
+}: {
+  active: boolean;
+  conversation: Conversation;
+  onDelete: (id: string) => void;
+  onExport: (id: string) => void;
+  onRename: (conversation: Conversation) => void;
+  onSelect: (id: string) => void;
+  onTogglePin: (id: string, pinned: boolean) => void;
+  pinnedCount: number;
+  runStatus: string | null | undefined;
+}) {
+  const theme = useTheme();
+  const pinned = Boolean(conversation.pinnedAt);
+  return (
+    <SidebarMenuItem>
+      <SidebarClose asChild>
+        <SidebarMenuButton
+          isActive={active}
+          onPress={() => onSelect(conversation.id)}
+        >
+          <View className="min-w-0 flex-1 flex-row items-center gap-sp-2">
+            <Text
+              className={cn(
+                "min-w-0 flex-1 font-sans text-sm font-medium",
+                active
+                  ? "text-background dark:text-background-dark"
+                  : "text-foreground dark:text-foreground-dark",
+              )}
+              numberOfLines={1}
+            >
+              {conversation.title}
+            </Text>
+            <View className="shrink-0 flex-row items-center justify-center gap-sp-2">
+              {runStatus === "running" ||
+              runStatus === "queued" ||
+              runStatus === "resumable" ? (
+                <ActivityIndicator
+                  color={active ? theme.background : theme.textSecondary}
+                  size="small"
+                />
+              ) : runStatus === "waiting_for_approval" ||
+                runStatus === "waiting_for_question" ? (
+                <Pause
+                  color={active ? theme.background : theme.textSecondary}
+                  size={14}
+                />
+              ) : null}
+              <ChatOptions
+                color={active ? theme.background : theme.textSecondary}
+                onDelete={() => onDelete(conversation.id)}
+                onExport={() => onExport(conversation.id)}
+                onRename={() => onRename(conversation)}
+                onTogglePin={() => onTogglePin(conversation.id, pinned)}
+                pinned={pinned}
+                pinnedCount={pinnedCount}
+              />
+            </View>
+          </View>
+        </SidebarMenuButton>
+      </SidebarClose>
+    </SidebarMenuItem>
+  );
+});
+
+function ChatOptions({
+  color,
+  onDelete,
+  onExport,
+  onRename,
+  onTogglePin,
+  pinned,
+  pinnedCount,
+}: {
+  color: string;
+  onDelete: () => void;
+  onExport: () => void;
+  onRename: () => void;
+  onTogglePin: () => void;
+  pinned: boolean;
+  pinnedCount: number;
+}) {
+  const theme = useTheme();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Pressable
+          accessibilityLabel="Chat options"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={(event) => event.stopPropagation()}
+        >
+          <EllipsisVertical color={color} size={20} />
+        </Pressable>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent width={190}>
+        <DropdownMenuItem onPress={onRename}>
+          <View className="flex-row items-center gap-sp-2">
+            <Pencil color={theme.text} size={16} />
+            <Text className="font-sans text-base text-foreground dark:text-foreground-dark">
+              Rename
+            </Text>
+          </View>
+        </DropdownMenuItem>
+        <DropdownMenuItem onPress={onExport}>
+          <View className="flex-row items-center gap-sp-2">
+            <Download color={theme.text} size={16} />
+            <Text className="font-sans text-base text-foreground dark:text-foreground-dark">
+              Export chat
+            </Text>
+          </View>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!pinned && pinnedCount >= 3}
+          onPress={onTogglePin}
+        >
+          <View className="flex-row items-center gap-sp-2">
+            {pinned ? (
+              <PinOff color={theme.text} size={16} />
+            ) : (
+              <Pin color={theme.text} size={16} />
+            )}
+            <Text className="font-sans text-base text-foreground dark:text-foreground-dark">
+              {pinned
+                ? "Unpin"
+                : pinnedCount >= 3
+                  ? "Pin limit reached"
+                  : "Pin"}
+            </Text>
+          </View>
+        </DropdownMenuItem>
+        <DropdownMenuItem onPress={onDelete}>
+          <View className="flex-row items-center gap-sp-2">
+            <Trash2 color={theme.destructive} size={16} />
+            <Text className="font-sans text-base text-destructive dark:text-destructive-dark">
+              Delete
+            </Text>
+          </View>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

@@ -16,7 +16,7 @@ service cloud.firestore {
     match /taskHistory/{taskId} {
       allow get, list: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
@@ -36,7 +36,7 @@ service cloud.firestore {
     match /moments/{momentId} {
       allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
@@ -44,7 +44,7 @@ service cloud.firestore {
     match /triggers/{triggerId} {
       allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
